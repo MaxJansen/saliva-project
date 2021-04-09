@@ -1,0 +1,32 @@
+# Get all pdb's
+# Run precompute step
+# Use the raw pdb's to get the chains with the following script:
+
+cd /work/upcorreia/users/jansen/masif_site_surface/data/masif_site/add_pdb_chain
+python get_pdb_chains.py
+# Correct the output by removing trailing numbers
+sed 's#[0-9]*$##' pdb_and_chain.txt >> pdb_and_chain_corrected.txt
+
+#Copy corrected pdb list to /lists directory, so you can rerun precompute
+
+scp pdb_and_chain_corrected.txt ../lists/
+
+
+# Precompute, using your new lists with pdb and chain names in the correct format:
+source /work/upcorreia/bin/load_masif_environment.sh
+# Edit data_prepare.slurm and ensure that the list is the pdb_and_chain_corrected.txt
+# Last line of the file should be: 'done < lists/pdb_and_chain_corrected.txt'
+
+cd /work/upcorreia/users/jansen/masif_site_surface/data/masif_site
+sbatch data_prepare.slurm
+
+# log in to GPU like izar to run these masif scripts, predict and color
+Sinteract -p gpu -q gpu -g gpu:1 -t 8:0:0 -m 32000
+source /work/upcorreia/bin/load_masif_environment_gpu.sh
+./predict_site.sh -l lists/pdb_and_chain_corrected.txt
+./color_site.sh -l lists/pdb_and_chain_corrected.txt
+
+# This calculates the surface area ratio between the interaction patch and
+# the entire protein:
+python3 surface_ratio.py
+mv ply_surface_ratio.txt ply_surface_ratio_saliva.txt
